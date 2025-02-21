@@ -12,7 +12,7 @@ app.use(cors());
 
 const upload = multer({ dest: 'uploads/' });
 
-// Configuración de la base de datos
+
 const dbConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
@@ -24,7 +24,7 @@ const dbConfig = {
     },
 };
 
-// Conectar a la base de datos
+
 async function connectDB() {
     try {
         await sql.connect(dbConfig);
@@ -47,7 +47,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const sheetName = workbook.SheetNames[0];
         const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        // Procesar datos e insertarlos en la BD
+        
         const pool = await sql.connect(dbConfig);
 
         for (const row of data) {
@@ -55,7 +55,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
                 console.log('Fila omitida por falta de Clave:', row);
                 continue; // Salta esta fila si Clave está vacío
             }
-        
+
             await pool.request()
                 .input('Clave', sql.NVarChar, row.Clave)
                 .input('Concepto', sql.NVarChar, row.Concepto)
@@ -68,15 +68,23 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
                     VALUES (@Clave, @Concepto, @UnidadMedida, @Cantidad, @PrecioUnitario, @Importe)
                 `);
         }
+
         
+        res.download(req.file.path, req.file.originalname, (err) => {
+            if (err) {
+                console.error('Error al descargar el archivo:', err);
+                res.status(500).json({ error: 'Error al descargar el archivo' });
+            } else {
+                
+                fs.unlinkSync(req.file.path);
+            }
+        });
 
-        fs.unlinkSync(req.file.path); // Eliminar el archivo después de procesarlo
-
-        res.json({ message: 'Archivo procesado y datos insertados correctamente' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
